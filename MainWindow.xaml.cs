@@ -1393,7 +1393,7 @@ namespace AutoDeployTool
 
         public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
         {
-            return (bool)value ? Enum.Parse(targetType, parameter?.ToString()) : Binding.DoNothing;
+            return (bool)value ? Enum.Parse(targetType, parameter?.ToString()) : System.Windows.Data.Binding.DoNothing;
         }
     }
     #endregion
