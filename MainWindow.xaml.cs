@@ -8,6 +8,7 @@ using System.Security;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using Microsoft.Web.Administration;
@@ -16,6 +17,7 @@ using System.ServiceProcess;
 using System.Xml.Serialization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Runtime.InteropServices;
 
 namespace AutoDeployTool
 {

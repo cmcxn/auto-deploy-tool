@@ -7,6 +7,9 @@
         mc:Ignorable="d"
         Title="AutoDeployTool - 自动化部署工具" Height="700" Width="1000"
         WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <local:EnumToBooleanConverter x:Key="EnumToBooleanConverter"/>
+    </Window.Resources>
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -105,8 +108,8 @@
                     
                     <Label Grid.Row="1" Grid.Column="0" Content="执行顺序:" VerticalAlignment="Center"/>
                     <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="5">
-                        <RadioButton Content="按列表顺序" IsChecked="{Binding SqlExecutionOrder, Converter={local:EnumToBooleanConverter}, ConverterParameter=Sequential}" Margin="0,0,10,0"/>
-                        <RadioButton Content="并行执行" IsChecked="{Binding SqlExecutionOrder, Converter={local:EnumToBooleanConverter}, ConverterParameter=Parallel}"/>
+                        <RadioButton Content="按列表顺序" IsChecked="{Binding SqlExecutionOrder, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Sequential}" Margin="0,0,10,0"/>
+                        <RadioButton Content="并行执行" IsChecked="{Binding SqlExecutionOrder, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Parallel}"/>
                     </StackPanel>
                     
                     <ListBox Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" ItemsSource="{Binding SqlScripts}" Height="200" Margin="5">
