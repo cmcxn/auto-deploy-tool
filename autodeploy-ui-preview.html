@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoDeployTool - UI Preview</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .window {
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .title {
+            background: #0078d4;
+            color: white;
+            padding: 10px;
+            margin: -20px -20px 20px -20px;
+            border-radius: 8px 8px 0 0;
+            font-weight: bold;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ccc;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            border: 1px solid #ccc;
+            border-bottom: none;
+            background: #f8f8f8;
+            cursor: pointer;
+            margin-right: 2px;
+        }
+        .tab.active {
+            background: white;
+            border-bottom: 1px solid white;
+            margin-bottom: -1px;
+        }
+        .tab-content {
+            display: none;
+            padding: 20px;
+            border: 1px solid #ccc;
+            background: white;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .form-group {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .form-group label {
+            width: 120px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group select {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .button {
+            background: #0078d4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button.green {
+            background: #28a745;
+        }
+        .button.red {
+            background: #dc3545;
+        }
+        .log-area {
+            background: #f8f8f8;
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            margin: 20px 0;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #0078d4;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .rules-list {
+            border: 1px solid #ccc;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .rule-item {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        .rule-item input {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="window">
+        <div class="title">AutoDeployTool - 自动化部署工具</div>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('server')">服务器配置</div>
+            <div class="tab" onclick="showTab('files')">文件部署</div>
+            <div class="tab" onclick="showTab('sql')">SQL脚本</div>
+            <div class="tab" onclick="showTab('services')">Windows服务</div>
+            <div class="tab" onclick="showTab('options')">部署选项</div>
+        </div>
+        
+        <div id="server" class="tab-content active">
+            <div class="form-group">
+                <label>服务器地址:</label>
+                <input type="text" value="localhost" />
+            </div>
+            <div class="form-group">
+                <label>用户名:</label>
+                <input type="text" />
+            </div>
+            <div class="form-group">
+                <label>密码:</label>
+                <input type="password" />
+            </div>
+            <div class="form-group">
+                <label>目标目录:</label>
+                <input type="text" style="margin-right: 10px;" />
+                <button class="button">浏览...</button>
+            </div>
+            <div class="form-group">
+                <label>IIS站点名:</label>
+                <input type="text" />
+            </div>
+        </div>
+        
+        <div id="files" class="tab-content">
+            <div class="form-group">
+                <input type="text" placeholder="选择源目录..." style="margin-right: 10px;" />
+                <button class="button">选择源目录...</button>
+                <label style="margin-left: 20px;"><input type="checkbox" checked /> 包含子目录</label>
+            </div>
+            <h4>文件替换规则</h4>
+            <div class="rules-list">
+                <div class="rule-item">
+                    <input type="text" placeholder="源文件模式(支持通配符)" style="width: 150px;" />
+                    <input type="text" placeholder="目标路径" style="width: 200px;" />
+                    <button class="button">删除</button>
+                </div>
+                <div class="rule-item">
+                    <input type="text" placeholder="*.dll" style="width: 150px;" />
+                    <input type="text" placeholder="bin" style="width: 200px;" />
+                    <button class="button">删除</button>
+                </div>
+            </div>
+            <button class="button">添加替换规则</button>
+        </div>
+        
+        <div id="sql" class="tab-content">
+            <div class="form-group">
+                <label>数据库连接:</label>
+                <input type="text" placeholder="Server=localhost;Database=MyDB;Integrated Security=true" />
+            </div>
+            <div class="form-group">
+                <label>执行顺序:</label>
+                <div>
+                    <label><input type="radio" name="order" checked /> 按列表顺序</label>
+                    <label style="margin-left: 20px;"><input type="radio" name="order" /> 并行执行</label>
+                </div>
+            </div>
+            <h4>SQL脚本列表</h4>
+            <div class="rules-list">
+                <div class="rule-item">
+                    <input type="text" placeholder="脚本路径" style="width: 300px;" />
+                    <label><input type="checkbox" /> 出错继续</label>
+                    <button class="button">删除</button>
+                </div>
+            </div>
+            <button class="button">添加SQL脚本</button>
+        </div>
+        
+        <div id="services" class="tab-content">
+            <h4>Windows服务配置</h4>
+            <div class="rules-list">
+                <div class="rule-item">
+                    <input type="text" placeholder="服务名称" style="width: 150px;" />
+                    <input type="text" placeholder="服务可执行文件路径" style="width: 200px;" />
+                    <label><input type="checkbox" /> 停止</label>
+                    <label><input type="checkbox" /> 启动</label>
+                    <label><input type="checkbox" /> 更新</label>
+                    <button class="button">删除</button>
+                </div>
+            </div>
+            <button class="button">添加服务配置</button>
+        </div>
+        
+        <div id="options" class="tab-content">
+            <div class="checkbox-group">
+                <label><input type="checkbox" checked /> 执行文件部署</label>
+                <label><input type="checkbox" checked /> 执行SQL脚本</label>
+                <label><input type="checkbox" checked /> 处理Windows服务</label>
+                <label><input type="checkbox" checked /> 操作IIS (停止/启动)</label>
+                
+                <h4>部署前操作:</h4>
+                <label style="margin-left: 20px;"><input type="checkbox" checked /> 停止IIS站点</label>
+                <label style="margin-left: 20px;"><input type="checkbox" checked /> 备份目标目录</label>
+                
+                <h4>部署后操作:</h4>
+                <label style="margin-left: 20px;"><input type="checkbox" checked /> 启动IIS站点</label>
+                <label style="margin-left: 20px;"><input type="checkbox" checked /> 验证部署结果</label>
+            </div>
+        </div>
+        
+        <div class="log-area">
+            <div>[12:34:56] 准备开始部署...</div>
+            <div>[12:34:57] 停止IIS站点...</div>
+            <div>[12:34:58] 开始文件部署...</div>
+            <div>[12:35:00] 复制文件: config.xml → bin/config.xml</div>
+            <div>[12:35:01] 执行SQL脚本: update_schema.sql</div>
+            <div>[12:35:03] 启动Windows服务: MyService</div>
+            <div>[12:35:04] 启动IIS站点...</div>
+            <div>[12:35:05] 部署完成!</div>
+        </div>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" style="width: 75%;"></div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="button">保存配置</button>
+            <button class="button">加载配置</button>
+            <button class="button">验证配置</button>
+            <button class="button green">开始部署</button>
+            <button class="button red">取消部署</button>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabName) {
+            // Hide all tab contents
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(content => content.classList.remove('active'));
+            
+            // Remove active class from all tabs
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
