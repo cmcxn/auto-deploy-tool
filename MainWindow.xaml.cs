@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -42,9 +43,9 @@ namespace AutoDeployTool
         private bool _backupBeforeDeploy = true;
         private bool _verifyDeployment = true;
         
-        private List<FileReplaceRule> _fileReplaceRules = new List<FileReplaceRule>();
-        private List<SqlScript> _sqlScripts = new List<SqlScript>();
-        private List<WindowsService> _windowsServices = new List<WindowsService>();
+        private ObservableCollection<FileReplaceRule> _fileReplaceRules = new ObservableCollection<FileReplaceRule>();
+        private ObservableCollection<SqlScript> _sqlScripts = new ObservableCollection<SqlScript>();
+        private ObservableCollection<WindowsService> _windowsServices = new ObservableCollection<WindowsService>();
         
         private bool _isDeploying;
         private CancellationTokenSource _cancellationTokenSource;
@@ -151,19 +152,19 @@ namespace AutoDeployTool
             set { _verifyDeployment = value; OnPropertyChanged(); }
         }
 
-        public List<FileReplaceRule> FileReplaceRules
+        public ObservableCollection<FileReplaceRule> FileReplaceRules
         {
             get => _fileReplaceRules;
             set { _fileReplaceRules = value; OnPropertyChanged(); }
         }
 
-        public List<SqlScript> SqlScripts
+        public ObservableCollection<SqlScript> SqlScripts
         {
             get => _sqlScripts;
             set { _sqlScripts = value; OnPropertyChanged(); }
         }
 
-        public List<WindowsService> WindowsServices
+        public ObservableCollection<WindowsService> WindowsServices
         {
             get => _windowsServices;
             set { _windowsServices = value; OnPropertyChanged(); }
@@ -212,7 +213,6 @@ namespace AutoDeployTool
         private void AddFileRule_Click(object sender, RoutedEventArgs e)
         {
             FileReplaceRules.Add(new FileReplaceRule());
-            OnPropertyChanged(nameof(FileReplaceRules));
         }
 
         private void RemoveFileRule_Click(object sender, RoutedEventArgs e)
@@ -220,7 +220,6 @@ namespace AutoDeployTool
             if (sender is System.Windows.Controls.Button button && button.DataContext is FileReplaceRule rule)
             {
                 FileReplaceRules.Remove(rule);
-                OnPropertyChanged(nameof(FileReplaceRules));
             }
         }
 
@@ -234,7 +233,6 @@ namespace AutoDeployTool
             if (dialog.ShowDialog() == true)
             {
                 SqlScripts.Add(new SqlScript { ScriptPath = dialog.FileName });
-                OnPropertyChanged(nameof(SqlScripts));
             }
         }
 
@@ -243,14 +241,12 @@ namespace AutoDeployTool
             if (sender is System.Windows.Controls.Button button && button.DataContext is SqlScript script)
             {
                 SqlScripts.Remove(script);
-                OnPropertyChanged(nameof(SqlScripts));
             }
         }
 
         private void AddWindowsService_Click(object sender, RoutedEventArgs e)
         {
             WindowsServices.Add(new WindowsService());
-            OnPropertyChanged(nameof(WindowsServices));
         }
 
         private void RemoveWindowsService_Click(object sender, RoutedEventArgs e)
@@ -258,7 +254,6 @@ namespace AutoDeployTool
             if (sender is System.Windows.Controls.Button button && button.DataContext is WindowsService service)
             {
                 WindowsServices.Remove(service);
-                OnPropertyChanged(nameof(WindowsServices));
             }
         }
 
@@ -293,9 +288,9 @@ namespace AutoDeployTool
                         StartIisAfterDeploy = StartIisAfterDeploy,
                         BackupBeforeDeploy = BackupBeforeDeploy,
                         VerifyDeployment = VerifyDeployment,
-                        FileReplaceRules = FileReplaceRules,
-                        SqlScripts = SqlScripts,
-                        WindowsServices = WindowsServices
+                        FileReplaceRules = FileReplaceRules?.ToList() ?? new List<FileReplaceRule>(),
+                        SqlScripts = SqlScripts?.ToList() ?? new List<SqlScript>(),
+                        WindowsServices = WindowsServices?.ToList() ?? new List<WindowsService>()
                     };
 
                     using (var stream = File.OpenWrite(dialog.FileName))
@@ -346,9 +341,9 @@ namespace AutoDeployTool
                         StartIisAfterDeploy = config.StartIisAfterDeploy;
                         BackupBeforeDeploy = config.BackupBeforeDeploy;
                         VerifyDeployment = config.VerifyDeployment;
-                        FileReplaceRules = config.FileReplaceRules;
-                        SqlScripts = config.SqlScripts;
-                        WindowsServices = config.WindowsServices;
+                        FileReplaceRules = new ObservableCollection<FileReplaceRule>(config.FileReplaceRules ?? new List<FileReplaceRule>());
+                        SqlScripts = new ObservableCollection<SqlScript>(config.SqlScripts ?? new List<SqlScript>());
+                        WindowsServices = new ObservableCollection<WindowsService>(config.WindowsServices ?? new List<WindowsService>());
                     }
 
                     Log("配置已加载成功");
