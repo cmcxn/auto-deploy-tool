@@ -1,0 +1,202 @@
+<Window x:Class="AutoDeployTool.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:AutoDeployTool"
+        mc:Ignorable="d"
+        Title="AutoDeployTool - 自动化部署工具" Height="700" Width="1000"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- 配置区域 -->
+        <TabControl Grid.Row="0" Margin="0,0,0,10">
+            <!-- 服务器配置 -->
+            <TabItem Header="服务器配置">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <Label Grid.Row="0" Grid.Column="0" Content="服务器地址:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ServerAddress}" Margin="5"/>
+                    
+                    <Label Grid.Row="1" Grid.Column="0" Content="用户名:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Username}" Margin="5"/>
+                    
+                    <Label Grid.Row="2" Grid.Column="0" Content="密码:" VerticalAlignment="Center"/>
+                    <PasswordBox Grid.Row="2" Grid.Column="1" PasswordChanged="PasswordBox_PasswordChanged" Margin="5"/>
+                    
+                    <Label Grid.Row="3" Grid.Column="0" Content="目标目录:" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="5">
+                        <TextBox Text="{Binding TargetDirectory}" Margin="0,0,5,0" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                        <Button Content="浏览..." Click="BrowseTargetDirectory_Click"/>
+                    </StackPanel>
+                    
+                    <Label Grid.Row="4" Grid.Column="0" Content="IIS站点名:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding IisSiteName}" Margin="5"/>
+                </Grid>
+            </TabItem>
+            
+            <!-- 文件部署配置 -->
+            <TabItem Header="文件部署">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,5">
+                        <TextBox Text="{Binding SourceDirectory}" Margin="0,0,5,0" Width="300"/>
+                        <Button Content="选择源目录..." Click="BrowseSourceDirectory_Click"/>
+                        <CheckBox Content="包含子目录" IsChecked="{Binding IncludeSubdirectories}" Margin="10,0,0,0"/>
+                    </StackPanel>
+                    
+                    <GroupBox Grid.Row="1" Header="文件替换规则" Margin="0,5,0,5">
+                        <ListBox ItemsSource="{Binding FileReplaceRules}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBox Text="{Binding SourcePattern}" Width="150" Margin="2" ToolTip="源文件模式(支持通配符)"/>
+                                        <TextBox Text="{Binding TargetPath}" Width="200" Margin="2" ToolTip="目标路径"/>
+                                        <Button Content="删除" Click="RemoveFileRule_Click" Margin="2"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </GroupBox>
+                    
+                    <Button Grid.Row="2" Content="添加替换规则" Click="AddFileRule_Click" HorizontalAlignment="Left"/>
+                </Grid>
+            </TabItem>
+            
+            <!-- SQL脚本配置 -->
+            <TabItem Header="SQL脚本">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <Label Grid.Row="0" Grid.Column="0" Content="数据库连接:" VerticalAlignment="Center"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DbConnectionString}" Margin="5"/>
+                    
+                    <Label Grid.Row="1" Grid.Column="0" Content="执行顺序:" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="5">
+                        <RadioButton Content="按列表顺序" IsChecked="{Binding SqlExecutionOrder, Converter={local:EnumToBooleanConverter}, ConverterParameter=Sequential}" Margin="0,0,10,0"/>
+                        <RadioButton Content="并行执行" IsChecked="{Binding SqlExecutionOrder, Converter={local:EnumToBooleanConverter}, ConverterParameter=Parallel}"/>
+                    </StackPanel>
+                    
+                    <ListBox Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" ItemsSource="{Binding SqlScripts}" Height="200" Margin="5">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBox Text="{Binding ScriptPath}" Width="300" Margin="2"/>
+                                    <CheckBox Content="出错继续" IsChecked="{Binding ContinueOnError}" Margin="5,0,0,0"/>
+                                    <Button Content="删除" Click="RemoveSqlScript_Click" Margin="5,0,0,0"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    
+                    <Button Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Content="添加SQL脚本" Click="AddSqlScript_Click" HorizontalAlignment="Left" Margin="5"/>
+                </Grid>
+            </TabItem>
+            
+            <!-- Windows服务配置 -->
+            <TabItem Header="Windows服务">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    
+                    <ListBox Grid.Row="0" ItemsSource="{Binding WindowsServices}" Margin="0,0,0,5">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBox Text="{Binding ServiceName}" Width="150" Margin="2" ToolTip="服务名称"/>
+                                    <TextBox Text="{Binding ServicePath}" Width="200" Margin="2" ToolTip="服务可执行文件路径"/>
+                                    <StackPanel Orientation="Horizontal" Margin="5,0,0,0">
+                                        <CheckBox Content="停止" IsChecked="{Binding StopBeforeDeploy}" Margin="0,0,10,0"/>
+                                        <CheckBox Content="启动" IsChecked="{Binding StartAfterDeploy}" Margin="0,0,10,0"/>
+                                        <CheckBox Content="更新" IsChecked="{Binding UpdateService}" Margin="0,0,10,0"/>
+                                    </StackPanel>
+                                    <Button Content="删除" Click="RemoveWindowsService_Click" Margin="2"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    
+                    <Button Grid.Row="1" Content="添加服务配置" Click="AddWindowsService_Click" HorizontalAlignment="Left"/>
+                </Grid>
+            </TabItem>
+            
+            <!-- 部署选项 -->
+            <TabItem Header="部署选项">
+                <Grid Margin="10">
+                    <StackPanel>
+                        <CheckBox Content="执行文件部署" IsChecked="{Binding PerformFileDeployment}" Margin="0,5,0,5"/>
+                        <CheckBox Content="执行SQL脚本" IsChecked="{Binding PerformSqlExecution}" Margin="0,5,0,5"/>
+                        <CheckBox Content="处理Windows服务" IsChecked="{Binding PerformWindowsServices}" Margin="0,5,0,5"/>
+                        <CheckBox Content="操作IIS (停止/启动)" IsChecked="{Binding PerformIisOperations}" Margin="0,5,0,5"/>
+                        
+                        <Separator Margin="0,10,0,10"/>
+                        
+                        <Label Content="部署前操作:" FontWeight="Bold" Margin="0,5,0,0"/>
+                        <CheckBox Content="停止IIS站点" IsChecked="{Binding StopIisBeforeDeploy}" Margin="10,0,0,0"/>
+                        <CheckBox Content="备份目标目录" IsChecked="{Binding BackupBeforeDeploy}" Margin="10,0,0,0"/>
+                        
+                        <Label Content="部署后操作:" FontWeight="Bold" Margin="0,5,0,0"/>
+                        <CheckBox Content="启动IIS站点" IsChecked="{Binding StartIisAfterDeploy}" Margin="10,0,0,0"/>
+                        <CheckBox Content="验证部署结果" IsChecked="{Binding VerifyDeployment}" Margin="10,0,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+        </TabControl>
+        
+        <!-- 日志和进度 -->
+        <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            
+            <TextBox x:Name="LogTextBox" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" 
+                     Margin="0,0,0,5" TextWrapping="Wrap"/>
+            
+            <ProgressBar x:Name="DeploymentProgressBar" Height="20" Minimum="0" Maximum="100" Value="0"/>
+        </Grid>
+        
+        <!-- 操作按钮 -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="10">
+            <Button Content="保存配置" Click="SaveConfiguration_Click" Width="100" Margin="5"/>
+            <Button Content="加载配置" Click="LoadConfiguration_Click" Width="100" Margin="5"/>
+            <Button Content="验证配置" Click="ValidateConfiguration_Click" Width="100" Margin="5"/>
+            <Button Content="开始部署" Click="StartDeployment_Click" Width="100" Margin="5" Background="Green" Foreground="White"/>
+            <Button Content="取消部署" Click="CancelDeployment_Click" Width="100" Margin="5" Background="Red" Foreground="White"/>
+        </StackPanel>
+    </Grid>
+</Window>
