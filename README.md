@@ -66,7 +66,7 @@
 2. 解压到任意目录
 3. 运行 `AutoDeployTool.exe`
 
-> 📦 **自动化发布**: 每次创建新的 Git 标签时，都会自动构建并发布新版本到 GitHub Releases。详情请参考 [发布指南](RELEASE.md)。
+> 📦 **自动化发布**: 每次创建新的 Git 标签时，都会自动构建并发布新版本到 GitHub Releases。详情请参考 [发布指南](RELEASE.md) 和 [流水线使用指南](docs/PIPELINE_GUIDE.md)。
 
 ## 快速开始
 
@@ -123,6 +123,16 @@
 ## 贡献
 
 欢迎提交Issue和Pull Request来改进这个工具。
+
+## CI/CD 流水线
+
+本项目配置了完整的 GitHub Actions CI/CD 流水线：
+
+- **持续集成**: 每次 PR 和推送到主分支时自动构建验证
+- **自动发布**: 创建 Git 标签时自动构建并发布到 GitHub Releases
+- **多种触发方式**: 支持标签推送、GitHub 界面和手动触发
+
+详细使用说明请参考 [流水线使用指南](docs/PIPELINE_GUIDE.md)。
 
 ## 许可证
 
