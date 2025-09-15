@@ -62,9 +62,11 @@
 
 ## 安装
 
-1. 从Releases页面下载最新版本
+1. 从 [Releases 页面](https://github.com/cmcxn/auto-deploy-tool/releases) 下载最新版本
 2. 解压到任意目录
-3. 运行`AutoDeployTool.exe`
+3. 运行 `AutoDeployTool.exe`
+
+> 📦 **自动化发布**: 每次创建新的 Git 标签时，都会自动构建并发布新版本到 GitHub Releases。详情请参考 [发布指南](RELEASE.md)。
 
 ## 快速开始
 
