@@ -390,6 +390,12 @@ namespace AutoDeployTool
                 if (PerformIisOperations && string.IsNullOrWhiteSpace(IisSiteName))
                     errors.Add("IIS站点名未设置");
 
+                if (UseRemoteIisManagement && !IsLocalServer())
+                {
+                    if (string.IsNullOrWhiteSpace(Username) || Password == null)
+                        errors.Add("远程IIS管理需要用户名和密码");
+                }
+
                 if (errors.Any())
                 {
                     Log("配置验证失败:");
@@ -406,6 +412,43 @@ namespace AutoDeployTool
             catch (Exception ex)
             {
                 Log($"验证配置时出错: {ex.Message}");
+            }
+        }
+
+        private async void TestRemoteConnection_Click(object sender, RoutedEventArgs e)
+        {
+            if (IsLocalServer())
+            {
+                Log("当前配置为本地服务器，无需测试远程连接");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(Username) || Password == null)
+            {
+                Log("请先配置用户名和密码");
+                return;
+            }
+
+            try
+            {
+                Log("正在测试远程连接...");
+                
+                var testScript = @"
+                    Write-Output 'Connection successful'
+                    Get-Date
+                ";
+
+                var result = await ExecuteRemotePowerShellAsync(testScript, CancellationToken.None);
+                Log($"远程连接测试成功: {result}");
+            }
+            catch (Exception ex)
+            {
+                Log($"远程连接测试失败: {ex.Message}");
+                Log("请确保:");
+                Log("1. 目标服务器WinRM服务已启用");
+                Log("2. 用户名和密码正确");
+                Log("3. 网络连接正常");
+                Log("4. 防火墙允许WinRM连接(端口5985)");
             }
         }
 
@@ -1411,45 +1454,91 @@ namespace AutoDeployTool
 
         private async Task<string> ExecuteRemotePowerShellAsync(string script, CancellationToken cancellationToken)
         {
-            return await Task.Run(() =>
+            return await ExecuteRemotePowerShellWithRetryAsync(script, cancellationToken, maxRetries: 3);
+        }
+
+        private async Task<string> ExecuteRemotePowerShellWithRetryAsync(string script, CancellationToken cancellationToken, int maxRetries = 3)
+        {
+            Exception lastException = null;
+            
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
                 try
                 {
-                    // 创建PowerShell runspace配置
-                    var connectionInfo = new WSManConnectionInfo(
-                        new Uri($"http://{ServerAddress}:5985/wsman"),
-                        "http://schemas.microsoft.com/powershell/Microsoft.PowerShell",
-                        new PSCredential(Username, Password)
-                    );
-
-                    using (var runspace = RunspaceFactory.CreateRunspace(connectionInfo))
+                    if (attempt > 1)
                     {
-                        runspace.Open();
-                        
-                        using (var powershell = PowerShell.Create())
-                        {
-                            powershell.Runspace = runspace;
-                            powershell.AddScript(script);
-                            
-                            var results = powershell.Invoke();
-                            var output = string.Join("\n", results.Select(r => r?.ToString()));
-                            
-                            if (powershell.HadErrors)
-                            {
-                                var errors = string.Join("\n", powershell.Streams.Error.Select(e => e.ToString()));
-                                throw new InvalidOperationException($"PowerShell执行出错: {errors}");
-                            }
-                            
-                            return output;
-                        }
+                        Log($"重试远程PowerShell连接 (第{attempt}次尝试)...");
+                        await Task.Delay(2000 * attempt, cancellationToken); // 递增延迟
                     }
+
+                    return await Task.Run(() =>
+                    {
+                        if (string.IsNullOrWhiteSpace(Username) || Password == null)
+                        {
+                            throw new InvalidOperationException("远程PowerShell连接需要用户名和密码");
+                        }
+
+                        // 创建PowerShell runspace配置
+                        var connectionInfo = new WSManConnectionInfo(
+                            new Uri($"http://{ServerAddress}:5985/wsman"),
+                            "http://schemas.microsoft.com/powershell/Microsoft.PowerShell",
+                            new PSCredential(Username, Password)
+                        );
+
+                        // 设置连接超时和操作超时
+                        connectionInfo.OperationTimeout = TimeSpan.FromMinutes(2);
+                        connectionInfo.OpenTimeout = TimeSpan.FromSeconds(30);
+
+                        using (var runspace = RunspaceFactory.CreateRunspace(connectionInfo))
+                        {
+                            runspace.Open();
+                            
+                            using (var powershell = PowerShell.Create())
+                            {
+                                powershell.Runspace = runspace;
+                                powershell.AddScript(script);
+                                
+                                var results = powershell.Invoke();
+                                var output = string.Join("\n", results.Select(r => r?.ToString()));
+                                
+                                if (powershell.HadErrors)
+                                {
+                                    var errors = string.Join("\n", powershell.Streams.Error.Select(e => e.ToString()));
+                                    throw new InvalidOperationException($"PowerShell执行出错: {errors}");
+                                }
+                                
+                                return output;
+                            }
+                        }
+                    }, cancellationToken);
+                }
+                catch (PSRemotingTransportException ex)
+                {
+                    lastException = ex;
+                    Log($"远程PowerShell连接失败 (尝试 {attempt}/{maxRetries}) - 请检查WinRM服务是否启用: {ex.Message}");
+                    if (attempt == maxRetries)
+                    {
+                        throw new InvalidOperationException($"远程连接失败 (已重试{maxRetries}次): {ex.Message}");
+                    }
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    lastException = ex;
+                    Log($"远程PowerShell认证失败 - 请检查用户名和密码: {ex.Message}");
+                    throw new InvalidOperationException($"认证失败: {ex.Message}"); // 认证错误不重试
                 }
                 catch (Exception ex)
                 {
-                    Log($"执行远程PowerShell命令失败: {ex.Message}");
-                    throw;
+                    lastException = ex;
+                    Log($"执行远程PowerShell命令失败 (尝试 {attempt}/{maxRetries}): {ex.Message}");
+                    if (attempt == maxRetries)
+                    {
+                        throw;
+                    }
                 }
-            }, cancellationToken);
+            }
+
+            throw lastException ?? new InvalidOperationException("远程PowerShell执行失败");
         }
         #endregion
 
