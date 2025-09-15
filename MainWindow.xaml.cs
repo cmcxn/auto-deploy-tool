@@ -19,6 +19,8 @@ using System.Xml.Serialization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Runtime.InteropServices;
+using System.Management.Automation;
+using System.Management.Automation.Runspaces;
 
 namespace AutoDeployTool
 {
@@ -42,6 +44,7 @@ namespace AutoDeployTool
         private bool _startIisAfterDeploy = true;
         private bool _backupBeforeDeploy = true;
         private bool _verifyDeployment = true;
+        private bool _useRemoteIisManagement = false;
         
         private ObservableCollection<FileReplaceRule> _fileReplaceRules = new ObservableCollection<FileReplaceRule>();
         private ObservableCollection<SqlScript> _sqlScripts = new ObservableCollection<SqlScript>();
@@ -150,6 +153,12 @@ namespace AutoDeployTool
         {
             get => _verifyDeployment;
             set { _verifyDeployment = value; OnPropertyChanged(); }
+        }
+
+        public bool UseRemoteIisManagement
+        {
+            get => _useRemoteIisManagement;
+            set { _useRemoteIisManagement = value; OnPropertyChanged(); }
         }
 
         public ObservableCollection<FileReplaceRule> FileReplaceRules
@@ -288,6 +297,7 @@ namespace AutoDeployTool
                         StartIisAfterDeploy = StartIisAfterDeploy,
                         BackupBeforeDeploy = BackupBeforeDeploy,
                         VerifyDeployment = VerifyDeployment,
+                        UseRemoteIisManagement = UseRemoteIisManagement,
                         FileReplaceRules = FileReplaceRules?.ToList() ?? new List<FileReplaceRule>(),
                         SqlScripts = SqlScripts?.ToList() ?? new List<SqlScript>(),
                         WindowsServices = WindowsServices?.ToList() ?? new List<WindowsService>()
@@ -341,6 +351,7 @@ namespace AutoDeployTool
                         StartIisAfterDeploy = config.StartIisAfterDeploy;
                         BackupBeforeDeploy = config.BackupBeforeDeploy;
                         VerifyDeployment = config.VerifyDeployment;
+                        UseRemoteIisManagement = config.UseRemoteIisManagement;
                         FileReplaceRules = new ObservableCollection<FileReplaceRule>(config.FileReplaceRules ?? new List<FileReplaceRule>());
                         SqlScripts = new ObservableCollection<SqlScript>(config.SqlScripts ?? new List<SqlScript>());
                         WindowsServices = new ObservableCollection<WindowsService>(config.WindowsServices ?? new List<WindowsService>());
@@ -557,34 +568,97 @@ namespace AutoDeployTool
 
                 Log($"停止IIS站点: {IisSiteName}");
                 
-                // 使用IIS管理API停止站点
-                using (var serverManager = new ServerManager())
+                if (UseRemoteIisManagement && !IsLocalServer())
                 {
-                    var site = serverManager.Sites[IisSiteName];
-                    if (site == null)
-                    {
-                        Log($"找不到IIS站点: {IisSiteName}");
-                        return false;
-                    }
-
-                    if (site.State == ObjectState.Started)
-                    {
-                        site.Stop();
-                        serverManager.CommitChanges();
-                        await Task.Delay(2000); // 等待站点停止
-                        Log($"IIS站点 {IisSiteName} 已停止");
-                    }
-                    else
-                    {
-                        Log($"IIS站点 {IisSiteName} 已经处于停止状态");
-                    }
+                    // 使用PowerShell远程管理IIS
+                    return await StopIisSiteRemoteAsync(cancellationToken);
                 }
-
-                return true;
+                else
+                {
+                    // 使用本地IIS管理API
+                    return await StopIisSiteLocalAsync(cancellationToken);
+                }
             }
             catch (Exception ex)
             {
                 Log($"停止IIS站点失败: {ex.Message}");
+                return false;
+            }
+        }
+
+        private async Task<bool> StopIisSiteLocalAsync(CancellationToken cancellationToken)
+        {
+            using (var serverManager = new ServerManager())
+            {
+                var site = serverManager.Sites[IisSiteName];
+                if (site == null)
+                {
+                    Log($"找不到IIS站点: {IisSiteName}");
+                    return false;
+                }
+
+                if (site.State == ObjectState.Started)
+                {
+                    site.Stop();
+                    serverManager.CommitChanges();
+                    await Task.Delay(2000, cancellationToken); // 等待站点停止
+                    Log($"IIS站点 {IisSiteName} 已停止");
+                }
+                else
+                {
+                    Log($"IIS站点 {IisSiteName} 已经处于停止状态");
+                }
+            }
+            return true;
+        }
+
+        private async Task<bool> StopIisSiteRemoteAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                var script = $@"
+                    Import-Module WebAdministration
+                    $site = Get-Website -Name '{IisSiteName}' -ErrorAction SilentlyContinue
+                    if ($site -eq $null) {{
+                        Write-Output 'SITE_NOT_FOUND'
+                        exit 1
+                    }}
+                    if ($site.State -eq 'Started') {{
+                        Stop-Website -Name '{IisSiteName}'
+                        Start-Sleep -Seconds 2
+                        $updatedSite = Get-Website -Name '{IisSiteName}'
+                        if ($updatedSite.State -eq 'Stopped') {{
+                            Write-Output 'STOPPED'
+                        }} else {{
+                            Write-Output 'FAILED_TO_STOP'
+                            exit 1
+                        }}
+                    }} else {{
+                        Write-Output 'ALREADY_STOPPED'
+                    }}
+                ";
+
+                var result = await ExecuteRemotePowerShellAsync(script, cancellationToken);
+                
+                if (result.Contains("SITE_NOT_FOUND"))
+                {
+                    Log($"找不到IIS站点: {IisSiteName}");
+                    return false;
+                }
+                else if (result.Contains("STOPPED") || result.Contains("ALREADY_STOPPED"))
+                {
+                    Log($"IIS站点 {IisSiteName} 已停止");
+                    return true;
+                }
+                else
+                {
+                    Log($"远程停止IIS站点失败: {result}");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"远程停止IIS站点时出错: {ex.Message}");
                 return false;
             }
         }
@@ -597,33 +671,97 @@ namespace AutoDeployTool
 
                 Log($"启动IIS站点: {IisSiteName}");
                 
-                using (var serverManager = new ServerManager())
+                if (UseRemoteIisManagement && !IsLocalServer())
                 {
-                    var site = serverManager.Sites[IisSiteName];
-                    if (site == null)
-                    {
-                        Log($"找不到IIS站点: {IisSiteName}");
-                        return false;
-                    }
-
-                    if (site.State == ObjectState.Stopped)
-                    {
-                        site.Start();
-                        serverManager.CommitChanges();
-                        await Task.Delay(2000); // 等待站点启动
-                        Log($"IIS站点 {IisSiteName} 已启动");
-                    }
-                    else
-                    {
-                        Log($"IIS站点 {IisSiteName} 已经处于运行状态");
-                    }
+                    // 使用PowerShell远程管理IIS
+                    return await StartIisSiteRemoteAsync(cancellationToken);
                 }
-
-                return true;
+                else
+                {
+                    // 使用本地IIS管理API
+                    return await StartIisSiteLocalAsync(cancellationToken);
+                }
             }
             catch (Exception ex)
             {
                 Log($"启动IIS站点失败: {ex.Message}");
+                return false;
+            }
+        }
+
+        private async Task<bool> StartIisSiteLocalAsync(CancellationToken cancellationToken)
+        {
+            using (var serverManager = new ServerManager())
+            {
+                var site = serverManager.Sites[IisSiteName];
+                if (site == null)
+                {
+                    Log($"找不到IIS站点: {IisSiteName}");
+                    return false;
+                }
+
+                if (site.State == ObjectState.Stopped)
+                {
+                    site.Start();
+                    serverManager.CommitChanges();
+                    await Task.Delay(2000, cancellationToken); // 等待站点启动
+                    Log($"IIS站点 {IisSiteName} 已启动");
+                }
+                else
+                {
+                    Log($"IIS站点 {IisSiteName} 已经处于运行状态");
+                }
+            }
+            return true;
+        }
+
+        private async Task<bool> StartIisSiteRemoteAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                var script = $@"
+                    Import-Module WebAdministration
+                    $site = Get-Website -Name '{IisSiteName}' -ErrorAction SilentlyContinue
+                    if ($site -eq $null) {{
+                        Write-Output 'SITE_NOT_FOUND'
+                        exit 1
+                    }}
+                    if ($site.State -eq 'Stopped') {{
+                        Start-Website -Name '{IisSiteName}'
+                        Start-Sleep -Seconds 2
+                        $updatedSite = Get-Website -Name '{IisSiteName}'
+                        if ($updatedSite.State -eq 'Started') {{
+                            Write-Output 'STARTED'
+                        }} else {{
+                            Write-Output 'FAILED_TO_START'
+                            exit 1
+                        }}
+                    }} else {{
+                        Write-Output 'ALREADY_STARTED'
+                    }}
+                ";
+
+                var result = await ExecuteRemotePowerShellAsync(script, cancellationToken);
+                
+                if (result.Contains("SITE_NOT_FOUND"))
+                {
+                    Log($"找不到IIS站点: {IisSiteName}");
+                    return false;
+                }
+                else if (result.Contains("STARTED") || result.Contains("ALREADY_STARTED"))
+                {
+                    Log($"IIS站点 {IisSiteName} 已启动");
+                    return true;
+                }
+                else
+                {
+                    Log($"远程启动IIS站点失败: {result}");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"远程启动IIS站点时出错: {ex.Message}");
                 return false;
             }
         }
@@ -1104,13 +1242,36 @@ namespace AutoDeployTool
                 // 验证IIS站点状态
                 if (PerformIisOperations && StartIisAfterDeploy)
                 {
-                    using (var serverManager = new ServerManager())
+                    if (UseRemoteIisManagement && !IsLocalServer())
                     {
-                        var site = serverManager.Sites[IisSiteName];
-                        if (site != null && site.State != ObjectState.Started)
+                        // 远程验证IIS站点状态
+                        var script = $@"
+                            Import-Module WebAdministration
+                            $site = Get-Website -Name '{IisSiteName}' -ErrorAction SilentlyContinue
+                            if ($site -ne $null -and $site.State -eq 'Started') {{
+                                Write-Output 'RUNNING'
+                            }} else {{
+                                Write-Output 'NOT_RUNNING'
+                            }}
+                        ";
+                        
+                        var result = await ExecuteRemotePowerShellAsync(script, cancellationToken);
+                        if (result.Contains("NOT_RUNNING"))
                         {
                             Log($"验证失败: IIS站点 {IisSiteName} 未启动");
                             allVerified = false;
+                        }
+                    }
+                    else
+                    {
+                        using (var serverManager = new ServerManager())
+                        {
+                            var site = serverManager.Sites[IisSiteName];
+                            if (site != null && site.State != ObjectState.Started)
+                            {
+                                Log($"验证失败: IIS站点 {IisSiteName} 未启动");
+                                allVerified = false;
+                            }
                         }
                     }
                 }
@@ -1236,6 +1397,59 @@ namespace AutoDeployTool
             }
             secureString.MakeReadOnly();
             return secureString;
+        }
+
+        #region Remote IIS Management Helper Methods
+        private bool IsLocalServer()
+        {
+            return string.IsNullOrWhiteSpace(ServerAddress) || 
+                   ServerAddress.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+                   ServerAddress.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+                   ServerAddress.Equals(".", StringComparison.OrdinalIgnoreCase) ||
+                   ServerAddress.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private async Task<string> ExecuteRemotePowerShellAsync(string script, CancellationToken cancellationToken)
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    // 创建PowerShell runspace配置
+                    var connectionInfo = new WSManConnectionInfo(
+                        new Uri($"http://{ServerAddress}:5985/wsman"),
+                        "http://schemas.microsoft.com/powershell/Microsoft.PowerShell",
+                        new PSCredential(Username, Password)
+                    );
+
+                    using (var runspace = RunspaceFactory.CreateRunspace(connectionInfo))
+                    {
+                        runspace.Open();
+                        
+                        using (var powershell = PowerShell.Create())
+                        {
+                            powershell.Runspace = runspace;
+                            powershell.AddScript(script);
+                            
+                            var results = powershell.Invoke();
+                            var output = string.Join("\n", results.Select(r => r?.ToString()));
+                            
+                            if (powershell.HadErrors)
+                            {
+                                var errors = string.Join("\n", powershell.Streams.Error.Select(e => e.ToString()));
+                                throw new InvalidOperationException($"PowerShell执行出错: {errors}");
+                            }
+                            
+                            return output;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log($"执行远程PowerShell命令失败: {ex.Message}");
+                    throw;
+                }
+            }, cancellationToken);
         }
         #endregion
 
@@ -1366,6 +1580,7 @@ namespace AutoDeployTool
         public bool StartIisAfterDeploy { get; set; }
         public bool BackupBeforeDeploy { get; set; }
         public bool VerifyDeployment { get; set; }
+        public bool UseRemoteIisManagement { get; set; }
         public List<FileReplaceRule> FileReplaceRules { get; set; } = new List<FileReplaceRule>();
         public List<SqlScript> SqlScripts { get; set; } = new List<SqlScript>();
         public List<WindowsService> WindowsServices { get; set; } = new List<WindowsService>();

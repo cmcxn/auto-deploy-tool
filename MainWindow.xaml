@@ -28,6 +28,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
@@ -52,6 +53,11 @@
                     
                     <Label Grid.Row="4" Grid.Column="0" Content="IIS站点名:" VerticalAlignment="Center"/>
                     <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding IisSiteName}" Margin="5"/>
+                    
+                    <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="5">
+                        <CheckBox Content="使用远程IIS管理" IsChecked="{Binding UseRemoteIisManagement}" ToolTip="启用此选项以通过PowerShell远程管理IIS站点"/>
+                        <TextBlock Margin="10,0,0,0" Text="(仅当目标服务器非本地时生效)" FontStyle="Italic" Foreground="Gray"/>
+                    </StackPanel>
                 </Grid>
             </TabItem>
             
