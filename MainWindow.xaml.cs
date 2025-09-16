@@ -21,6 +21,7 @@ using System.Text;
 using System.Runtime.InteropServices;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
+using System.Management.Automation.Remoting;
 
 namespace AutoDeployTool
 {
@@ -28,13 +29,13 @@ namespace AutoDeployTool
     {
         #region 绑定属性
         private string _serverAddress = "localhost";
-        private string _username;
-        private SecureString _password;
-        private string _targetDirectory;
-        private string _sourceDirectory;
+        private string? _username;
+        private SecureString? _password;
+        private string? _targetDirectory;
+        private string? _sourceDirectory;
         private bool _includeSubdirectories = true;
-        private string _iisSiteName;
-        private string _dbConnectionString;
+        private string? _iisSiteName;
+        private string? _dbConnectionString;
         private SqlExecutionOrder _sqlExecutionOrder = SqlExecutionOrder.Sequential;
         private bool _performFileDeployment = true;
         private bool _performSqlExecution = true;
@@ -59,25 +60,25 @@ namespace AutoDeployTool
             set { _serverAddress = value; OnPropertyChanged(); }
         }
 
-        public string Username
+        public string? Username
         {
             get => _username;
             set { _username = value; OnPropertyChanged(); }
         }
 
-        public SecureString Password
+        public SecureString? Password
         {
             get => _password;
             set { _password = value; OnPropertyChanged(); }
         }
 
-        public string TargetDirectory
+        public string? TargetDirectory
         {
             get => _targetDirectory;
             set { _targetDirectory = value; OnPropertyChanged(); }
         }
 
-        public string SourceDirectory
+        public string? SourceDirectory
         {
             get => _sourceDirectory;
             set { _sourceDirectory = value; OnPropertyChanged(); }
@@ -89,13 +90,13 @@ namespace AutoDeployTool
             set { _includeSubdirectories = value; OnPropertyChanged(); }
         }
 
-        public string IisSiteName
+        public string? IisSiteName
         {
             get => _iisSiteName;
             set { _iisSiteName = value; OnPropertyChanged(); }
         }
 
-        public string DbConnectionString
+        public string? DbConnectionString
         {
             get => _dbConnectionString;
             set { _dbConnectionString = value; OnPropertyChanged(); }
@@ -1413,7 +1414,7 @@ namespace AutoDeployTool
             }
         }
 
-        private string SecureStringToString(SecureString secureString)
+        private string? SecureStringToString(SecureString? secureString)
         {
             if (secureString == null) return null;
             
@@ -1429,7 +1430,7 @@ namespace AutoDeployTool
             }
         }
 
-        private SecureString StringToSecureString(string plainString)
+        private SecureString? StringToSecureString(string? plainString)
         {
             if (string.IsNullOrWhiteSpace(plainString)) return null;
             
@@ -1486,9 +1487,9 @@ namespace AutoDeployTool
                             new PSCredential(Username, Password)
                         );
 
-                        // 设置连接超时和操作超时
-                        connectionInfo.OperationTimeout = TimeSpan.FromMinutes(2);
-                        connectionInfo.OpenTimeout = TimeSpan.FromSeconds(30);
+                        // 设置连接超时和操作超时 (以毫秒为单位)
+                        connectionInfo.OperationTimeout = (int)TimeSpan.FromMinutes(2).TotalMilliseconds;
+                        connectionInfo.OpenTimeout = (int)TimeSpan.FromSeconds(30).TotalMilliseconds;
 
                         using (var runspace = RunspaceFactory.CreateRunspace(connectionInfo))
                         {
@@ -1544,9 +1545,9 @@ namespace AutoDeployTool
         #endregion
 
         #region INotifyPropertyChanged 实现
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
@@ -1556,24 +1557,24 @@ namespace AutoDeployTool
     #region 数据模型
     public class FileReplaceRule : INotifyPropertyChanged
     {
-        private string _sourcePattern;
-        private string _targetPath;
+        private string? _sourcePattern;
+        private string? _targetPath;
 
-        public string SourcePattern
+        public string? SourcePattern
         {
             get => _sourcePattern;
             set { _sourcePattern = value; OnPropertyChanged(); }
         }
 
-        public string TargetPath
+        public string? TargetPath
         {
             get => _targetPath;
             set { _targetPath = value; OnPropertyChanged(); }
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
@@ -1581,10 +1582,10 @@ namespace AutoDeployTool
 
     public class SqlScript : INotifyPropertyChanged
     {
-        private string _scriptPath;
+        private string? _scriptPath;
         private bool _continueOnError = true;
 
-        public string ScriptPath
+        public string? ScriptPath
         {
             get => _scriptPath;
             set { _scriptPath = value; OnPropertyChanged(); }
@@ -1596,9 +1597,9 @@ namespace AutoDeployTool
             set { _continueOnError = value; OnPropertyChanged(); }
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
@@ -1606,19 +1607,19 @@ namespace AutoDeployTool
 
     public class WindowsService : INotifyPropertyChanged
     {
-        private string _serviceName;
-        private string _servicePath;
+        private string? _serviceName;
+        private string? _servicePath;
         private bool _stopBeforeDeploy = true;
         private bool _startAfterDeploy = true;
         private bool _updateService = true;
 
-        public string ServiceName
+        public string? ServiceName
         {
             get => _serviceName;
             set { _serviceName = value; OnPropertyChanged(); }
         }
 
-        public string ServicePath
+        public string? ServicePath
         {
             get => _servicePath;
             set { _servicePath = value; OnPropertyChanged(); }
@@ -1642,9 +1643,9 @@ namespace AutoDeployTool
             set { _updateService = value; OnPropertyChanged(); }
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
