@@ -1441,6 +1441,7 @@ namespace AutoDeployTool
             secureString.MakeReadOnly();
             return secureString;
         }
+        #endregion
 
         #region Remote IIS Management Helper Methods
         private bool IsLocalServer()
