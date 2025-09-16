@@ -1,0 +1,68 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag version (e.g., v1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+        
+    - name: Restore dependencies
+      run: dotnet restore AutoDeployTool.csproj
+      
+    - name: Build application
+      run: dotnet build AutoDeployTool.csproj --configuration Release --no-restore
+      
+    - name: Publish application
+      run: dotnet publish AutoDeployTool.csproj --configuration Release --no-build --output ./publish
+      
+    - name: Create release package
+      run: |
+        Compress-Archive -Path ./publish/* -DestinationPath AutoDeployTool-${{ github.ref_name }}.zip
+      shell: pwsh
+      
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: AutoDeployTool ${{ github.ref_name }}
+        body: |
+          ## AutoDeployTool ${{ github.ref_name }}
+          
+          ### 下载和安装
+          1. 从下方下载 `AutoDeployTool-${{ github.ref_name }}.zip`
+          2. 解压到任意目录
+          3. 运行 `AutoDeployTool.exe`
+          
+          ### 系统要求
+          - Windows 10/Windows Server 2016 或更高版本
+          - .NET 8.0 Runtime
+          
+          ### 更新内容
+          请查看 [README.md](https://github.com/cmcxn/auto-deploy-tool/blob/main/README.md) 了解完整功能说明。
+          
+          ---
+          
+          **完整版本历史和功能说明请参考项目 README**
+        files: ./AutoDeployTool-${{ github.ref_name }}.zip
+        draft: false
+        prerelease: false
