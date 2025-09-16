@@ -11,6 +11,9 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -33,23 +36,39 @@ jobs:
     - name: Publish application
       run: dotnet publish AutoDeployTool.csproj --configuration Release --no-build --output ./publish
       
+    - name: Determine tag name
+      id: tag
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          TAG_NAME="${{ github.event.inputs.tag }}"
+        else
+          TAG_NAME="${{ github.ref_name }}"
+        fi
+        
+        # Validate tag name format (should be v*.*.* or similar)
+        if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+.*$ ]]; then
+          echo "::error::Invalid tag name format: $TAG_NAME. Expected format: v1.0.0 or v1.0.0-beta"
+          exit 1
+        fi
+        
+        echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+      shell: bash
+      
     - name: Create release package
       run: |
-        Compress-Archive -Path ./publish/* -DestinationPath AutoDeployTool-${{ github.ref_name }}.zip
+        Compress-Archive -Path ./publish/* -DestinationPath AutoDeployTool-${{ steps.tag.outputs.tag_name }}.zip
       shell: pwsh
       
     - name: Create Release
       uses: softprops/action-gh-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ github.ref_name }}
-        name: AutoDeployTool ${{ github.ref_name }}
+        tag_name: ${{ steps.tag.outputs.tag_name }}
+        name: AutoDeployTool ${{ steps.tag.outputs.tag_name }}
         body: |
-          ## AutoDeployTool ${{ github.ref_name }}
+          ## AutoDeployTool ${{ steps.tag.outputs.tag_name }}
           
           ### 下载和安装
-          1. 从下方下载 `AutoDeployTool-${{ github.ref_name }}.zip`
+          1. 从下方下载 `AutoDeployTool-${{ steps.tag.outputs.tag_name }}.zip`
           2. 解压到任意目录
           3. 运行 `AutoDeployTool.exe`
           
@@ -58,11 +77,11 @@ jobs:
           - .NET 8.0 Runtime
           
           ### 更新内容
-          请查看 [README.md](https://github.com/cmcxn/auto-deploy-tool/blob/main/README.md) 了解完整功能说明。
+          请查看 [README.md](https://github.com/cmcxn/auto-deploy-tool/blob/master/README.md) 了解完整功能说明。
           
           ---
           
           **完整版本历史和功能说明请参考项目 README**
-        files: ./AutoDeployTool-${{ github.ref_name }}.zip
+        files: ./AutoDeployTool-${{ steps.tag.outputs.tag_name }}.zip
         draft: false
         prerelease: false
